@@ -81,7 +81,7 @@ after pressing Ctrl-C it will show basic statistical report
 
 To test how fast your server reads messages, try the following experiment:
 
-1. Set ```enable.auto.commit: false``` in config.yml and set ```group.id: <YOUR USERNAME>_<SOME RANDOM NUMBER>```
+1. Set ```enable.auto.commit: true``` in config.yml and set ```group.id: <YOUR USERNAME>_<SOME RANDOM NUMBER>```
 2. Run consumer for some time, stop it. Wait a minute and start again
 
 What you expect to see is the reducing lag in messages, from approx 60,000 msec to close to 0.
