@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
+	"github.com/hashicorp/golang-lru/v2/expirable"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -17,7 +20,12 @@ type Listener interface {
 	enqueue(message *kafka.Message)
 }
 
-type processFn func(context.Context, *kafka.Message, int) error
+type dedupCache struct {
+	cache *expirable.LRU[string, bool]
+	mu    sync.Mutex
+}
+
+type processFn func(context.Context, *kafka.Message, int, *dedupCache) error
 
 type Processor struct {
 	queue     chan (*kafka.Message)
@@ -25,6 +33,7 @@ type Processor struct {
 	config    ProcessorConfig
 	processFn processFn
 	stat      *Statistics
+	dedup     *dedupCache
 }
 
 func newProcessor(config *Config) (*Processor, error) {
@@ -32,6 +41,10 @@ func newProcessor(config *Config) (*Processor, error) {
 		queue:  make(chan *kafka.Message, config.Processor.Buffer),
 		config: config.Processor,
 		stat:   newStatistics(),
+		dedup: &dedupCache{
+			cache: expirable.NewLRU[string, bool](10000, nil,
+				time.Second*time.Duration(240)),
+		},
 	}
 
 	var processFn processFn
@@ -66,7 +79,7 @@ func (processor *Processor) start(ctx context.Context) {
 					fmt.Println("Done, exiting processor loop worker ", i)
 					return nil
 				case message := <-processor.queue:
-					err := processor.processFn(ctx, message, i)
+					err := processor.processFn(ctx, message, i, processor.dedup)
 					if err != nil {
 						fmt.Println("Error processing message", err)
 					}
@@ -86,4 +99,17 @@ func (processor *Processor) close() {
 	processor.wg.Wait()
 	fmt.Println("Processor stopped")
 	processor.stat.report()
+}
+
+func (dedup *dedupCache) isDuplicated(slot uint64, index uint32) bool {
+	key := fmt.Sprintf("%d-%d", slot, index)
+	dedup.mu.Lock()
+	defer dedup.mu.Unlock()
+
+	if dedup.cache.Contains(key) {
+		return true
+	}
+
+	dedup.cache.Add(key, true)
+	return false
 }

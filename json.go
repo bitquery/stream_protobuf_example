@@ -21,7 +21,8 @@ type JsonMessage struct {
 	} `json:"Transaction"`
 }
 
-func (processor *Processor) jsonMessageHandler(ctx context.Context, message *kafka.Message, worker int) error {
+func (processor *Processor) jsonMessageHandler(_ context.Context,
+	message *kafka.Message, worker int, dedup *dedupCache) error {
 	processingTime := time.Now()
 	processor.stat.record(message.Timestamp, processingTime)
 
@@ -32,13 +33,19 @@ func (processor *Processor) jsonMessageHandler(ctx context.Context, message *kaf
 		return err
 	}
 
+	duplicated := 0
 	for _, t := range batch {
-		processor.stat.add(t.Block.Timestamp, t.Block.Slot, t.Transaction.Index, message.Timestamp, processingTime)
+		isDuplicated := dedup.isDuplicated(t.Block.Slot, t.Transaction.Index)
+		processor.stat.add(t.Block.Timestamp, t.Block.Slot, isDuplicated, message.Timestamp, processingTime)
+		if isDuplicated {
+			duplicated += 1
+		}
 	}
 
-	fmt.Printf("slot %d processed with lag %d msec %d txs from partition %d[%s] in worker %d\n",
+	fmt.Printf("slot %d processed with lag %d msec %d txs, %d duplicated from partition %d[%s] in worker %d\n",
 		batch[0].Block.Slot, processingTime.Sub(message.Timestamp).Milliseconds(),
-		len(batch), message.TopicPartition.Partition, message.TopicPartition.Offset, worker)
+		len(batch), duplicated,
+		message.TopicPartition.Partition, message.TopicPartition.Offset, worker)
 
 	return nil
 }

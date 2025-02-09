@@ -8,6 +8,7 @@ require (
 	github.com/bitquery/streaming_protobuf/v2 v2.0.29
 	github.com/confluentinc/confluent-kafka-go/v2 v2.8.0
 	github.com/golang/protobuf v1.5.4
+	github.com/hashicorp/golang-lru/v2 v2.0.7
 	golang.org/x/sync v0.8.0
 	gopkg.in/yaml.v3 v3.0.1
 )
