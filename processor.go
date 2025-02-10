@@ -42,7 +42,7 @@ func newProcessor(config *Config) (*Processor, error) {
 		config: config.Processor,
 		stat:   newStatistics(),
 		dedup: &dedupCache{
-			cache: expirable.NewLRU[string, bool](10000, nil,
+			cache: expirable.NewLRU[string, bool](100000, nil,
 				time.Second*time.Duration(240)),
 		},
 	}
