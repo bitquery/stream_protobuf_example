@@ -87,3 +87,16 @@ To test how fast your server reads messages, try the following experiment:
 What you expect to see is the reducing lag in messages, from approx 60,000 msec to close to 0.
 
 It must catch up in less than 10 seconds. If it does not catch up fast, test server connection speed and ping to brokers.
+
+
+# Docker 
+
+## Build
+```
+docker build -t stream_protobuf_example:v0.0.1 .
+```
+
+## Run
+```
+docker run --rm -v $(pwd)/config.yml:/app/config.yml stream_protobuf_example:v0.0.1
+```
